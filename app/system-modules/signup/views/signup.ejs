@@ -126,6 +126,11 @@
 		</span>
 	</div>
 
+
+	<% if (bypassToken) { %>
+	<input type="hidden" name="token" value="<%=bypassToken%>">
+	<% } %>
+
 	<input type="hidden" name="spinner" value="<%=spinner%>">
 	<input type="hidden" name="<%=disguise('timestamp', spinner)%>"
 		value="<%=timestamp%>">

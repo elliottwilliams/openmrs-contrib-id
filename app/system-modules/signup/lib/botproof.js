@@ -1,12 +1,13 @@
-var crypto = require('crypto'),
-  Common = require(global.__commonModule),
-  app = Common.app,
-  log = Common.logger.add('botproof'),
-  signupConf = require('../conf.signup.json'),
-  async = require('async'),
-  _ = require('underscore'),
-  dns = require('dns'),
-  db = Common.db;
+var crypto = require('crypto');
+var Common = require(global.__commonModule);
+var app = Common.app;
+var log = Common.logger.add('botproof');
+var signupConf = require('../conf.signup.json');
+var async = require('async');
+var _ = require('underscore');
+var dns = require('dns');
+var db = Common.db;
+var models = require('./models');
 
 db.define('IPWhitelist', {
   id: {
@@ -48,6 +49,12 @@ function hashField(name, spin) {
   return hash.digest('hex');
 }
 
+function hasValidBypassToken(res) {
+  var hasToken = res.local('bypassToken') !== null;
+  log.debug('checking for valid bypass token, exists =', hasToken);
+  return hasToken;
+}
+
 // Expose stuff.
 app.helpers({
   disguise: hashField
@@ -69,6 +76,9 @@ module.exports = {
   },
 
   checkTimestamp: function checkTimestamp(req, res, next) {
+
+    if (hasValidBypassToken(res)) return next();
+
     if (!req.body.timestamp) return badRequest(next);
 
     // Decipher
@@ -166,6 +176,9 @@ module.exports = {
   // Invalidate the request if the honeypot has been filled (presumably by a
   // bot). Honeypot field name is configured in conf.signup.js
   checkHoneypot: function checkHoneypot(req, res, next) {
+
+    if (hasValidBypassToken(res)) return next();
+
     if (req.body[signupConf.honeypotFieldName])
       return badRequest(next);
 
@@ -173,6 +186,8 @@ module.exports = {
   },
 
   spamListLookup: function spamListLookup(req, res, next) {
+    if (hasValidBypassToken(res)) return next();
+
     var rev = reverseIp(req),
       spams = signupConf.dnsSpamLists
 

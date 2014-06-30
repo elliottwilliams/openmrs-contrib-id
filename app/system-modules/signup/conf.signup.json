@@ -6,7 +6,8 @@
         "email",
         "password",
         "recaptcha_response_field",
-        "timestamp"
+        "timestamp",
+        "token"
     ],
     "requiredSubmitTimeSec": 5,
     "signupFormMaxAgeHours": 12,

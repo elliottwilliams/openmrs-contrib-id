@@ -1,17 +1,19 @@
-var url = require('url'),
-  path = require('path'),
-  botproof = require('./botproof'),
-  signupMiddleware = require('./middleware');
+var url = require('url');
+var path = require('path');
+var botproof = require('./botproof');
+var signupMiddleware = require('./middleware');
+var models = require('./models');
+var signuptokens = require('./signuptokens');
 
-var Common = require(global.__commonModule),
-  conf = Common.conf,
-  app = Common.app,
-  ldap = Common.ldap,
-  log = Common.logger.add('signup'),
-  mid = Common.mid,
-  validate = Common.validate,
-  verification = Common.verification,
-  nav = Common.userNav;
+var Common = require(global.__commonModule);
+var conf = Common.conf;
+var app = Common.app;
+var ldap = Common.ldap;
+var log = Common.logger.add('signup');
+var mid = Common.mid;
+var validate = Common.validate;
+var verification = Common.verification;
+var nav = Common.userNav;
 
 /*
 USER-NAV
@@ -46,22 +48,51 @@ app.get(/^\/signup\/?$|^\/$/i, validate.receive(), botproof.generators,
         values[prop] = query[prop];
     }
 
-    // handle layout query string & determine which view to render
-    renderLayout = (query.layout == 'false') ? false : true;
-    var viewPath = (renderLayout) ? __dirname + '/../views/signup' : __dirname + '/../views/signup-standalone';
+    // If a bypass token is given, verify that it's valid before using it.
+    var token = req.param('token');
+    var used;
 
-    // render the page
-    res.render(viewPath, {
-      values: values,
-      layout: renderLayout,
-      renderLayout: renderLayout, // allows view to see whether or not it has layout
-      bodyAppend: '<script type="text/javascript" src="https://www.google.com/recaptcha/api/challenge?k=' + conf.validation.recaptchaPublic + '"></script>'
-    });
+    if (token) {
+
+      models.SignupToken.find({where: {token: token}})
+      .then(function(token) {
+        used = token ? token.used : null
+
+      }, function(err) {
+        return next(err);
+      })
+      .then(renderSignup);
+
+    } else {
+      renderSignup();
+    }
+
+
+    function renderSignup() {
+
+      // handle layout query string & determine which view to render
+      renderLayout = (query.layout == 'false') ? false : true;
+      var viewPath = (renderLayout) ? __dirname + '/../views/signup' : __dirname + '/../views/signup-standalone';
+
+      // render the page
+      res.render(viewPath, {
+        values: values,
+        layout: renderLayout,
+        renderLayout: renderLayout, // allows view to see whether or not it has layout
+        bodyAppend: '<script type="text/javascript" src="https://www.google.com/recaptcha/api/challenge?k=' + conf.validation.recaptchaPublic + '"></script>',
+        bypassToken: (token && !used) ? token : null
+      });
+
+    }
+
   });
 app.get('/signup', mid.forceLogout); // prevent from getting 404'd if a logged-in user hits /signup
 
-app.post('/signup', mid.forceLogout, botproof.parsers,
+app.post('/signup', mid.forceLogout, signuptokens.parseSubmittedToken, botproof.parsers,
   signupMiddleware.includeEmpties, validate(), function(req, res, next) {
+
+    log.debug('signup post middleware completed');
+
     var id = req.body.username,
       first = req.body.firstname,
       last = req.body.lastname,
@@ -76,15 +107,15 @@ app.post('/signup', mid.forceLogout, botproof.parsers,
       res.end();
     }
 
-    var id = id.toLowerCase();
+    id = id.toLowerCase();
 
     // will be called after account is created and validation process started
     var finishCalls = 0,
       errored = false;
     var finish = function(err) {
-      if (err && errored == false) { // handle error
-        return next(err);
+      if (err && errored === false) { // handle error
         errored = true;
+        return next(err);
       } else {
         finishCalls++;
         if (finishCalls == 2) { // display welcome & verify notification

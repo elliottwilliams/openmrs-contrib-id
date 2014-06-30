@@ -184,6 +184,13 @@ module.exports = function(redirect) {
         }
       }
       if (field == 'recaptcha_response_field') {
+
+        // Skip the verification if this is a bypass token request
+        if (res.local('signupToken') !== null) {
+          log.debug('skipping recaptcha validation due to bypass token');
+          continue;
+        }
+
         calls++; // need to wait for the verification callback
         var captchaData = {
             remoteip: req.connection.remoteAddress,

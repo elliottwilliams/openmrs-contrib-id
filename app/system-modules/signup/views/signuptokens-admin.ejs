@@ -1,0 +1,63 @@
+<% title = 'OpenMRS ID — Signup Bypass Tokens' %>
+<% headline = 'Signup Bypass Tokens' %>
+
+<p>
+  Signup bypass tokens allow you to create a one-time use signup URL that
+  ignores all anti-bot checks and captcha verifications. It is useful for
+  users who are having issues signing up otherwise.
+</p>
+
+<div class="row">
+
+  <form action="/admin/signuptokens/create" method="post" class="col-md-4">
+    <button type="submit" class="btn btn-lg btn-primary">
+      Create new Token
+    </button>
+  </form>
+
+  <div class="col-md-8">
+    <% if (typeof created !== 'undefined') { %>
+    <div class="alert alert-info">
+      Created signup bypass URL:<br>
+      <pre><%= siteURL%>signup?token=<%= created %></pre>
+    </div>
+    <% } %>
+  </div>
+
+</div>
+
+
+<% if (tokens.length > 0) { %>
+
+<h2>Token history</h2>
+<table class="table">
+  <tr>
+    <th>Token</th>
+    <th>Status</th>
+    <th>Date Created</th>
+    <th>Actions</th>
+  </tr>
+
+  <% for (var i in tokens) { %>
+  <tr>
+    <td>
+      <a href="<%= siteURL%>signup?token=<%= tokens[i].token %>">
+        <%= tokens[i].token %>
+      </a>
+    </td>
+    <td>
+      <%- tokens[i].used ? '<span class="text-muted">Used</span>' :
+      '<span class="text-primary">Unused</span>' %>
+    </td>
+    <td>
+      <%= tokens[i].createdAt %>
+    </td>
+    <td>
+      <a href="/admin/signuptokens/delete?token=<%= tokens[i].id %>">Delete</a>
+    </td>
+  </tr>
+  <% } %>
+
+</table>
+
+<% } %>
